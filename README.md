@@ -1,6 +1,6 @@
-# 🎯 Bases (v0.1)
+# 🎯 Bases
 
-Bases (Polish transliteration) is currently implemented as an almost classic "Dots and Boxes" a pencil-and-paper game played on a grid of dots. Players alternate turns drawing horizontal or vertical lines between adjacent dots. Completing the fourth side of a 1x1 box earns the player ownership of that box. Once the grid is full and no more moves can be made, the player owning the most boxes wins.
+Bases (literal translation from Polish) is currently implemented as an almost classic 'Dots and Boxes'; a pencil-and-paper game played on a grid of dots. Players alternate turns drawing horizontal or vertical lines between adjacent dots. Completing the fourth side of a 1x1 box earns the player ownership of that box. Once the grid is full and no more moves can be made, the player owning the most boxes wins.
 
 ## Overview
 
@@ -135,7 +135,7 @@ AI (Player B)'s turn: drawing line (2, 2, 3, 2)
 - Main game controller; manages state (`lines`, `boxes`), move validation, scorekeeping, and game loop.
 - Logging via `logging` module to `game.log`.
 - Methods:
-    - `play(player_a, player_b, human_player=None)`: Executes a single game between two agents/players.
+    - `play(player_a, player_b)`: Executes a single game between two agents/players.
     - `is_line_drawn`, `make_move`, `available_moves`: Manage board state.
     - `save_lines_to_csv`: Persists move history.
     - `print_board`: Renders current board in ASCII to terminal.
@@ -186,8 +186,7 @@ AI (Player B)'s turn: drawing line (2, 2, 3, 2)
 ## Extending
 
 - Swap out `QLearningAgent` for alternative agents for experimentation.
-- Add more sophisticated adversaries (minimax, MCTS, etc.) by subclassing agent interface.
-- Use the generated CSVs/logs for research or debugging.
+- Add more sophisticated adversaries (minimax, MCTS, etc.).
 
 ---
 

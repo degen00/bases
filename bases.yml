@@ -19,4 +19,4 @@ exploration_rate: 0.0306
 # Q-Learning parameters 5x5 
 # learning_rate: 0.2968
 # discount_factor: 0.8695
-# exploration_rate: 0.7
+# exploration_rate: 0.1015
