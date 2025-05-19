@@ -1,0 +1,22 @@
+# Logs
+game_log: data/logs/game.log
+lines_log: data/logs/lines.csv
+hyperparameter_tuning_results: data/hp/hyperparameter_results.csv
+
+# Q-Learning policy
+policy_path: data/policy/policy.json
+
+# Q-Learning parameters 3x3
+#learning_rate: 0.0.9569
+#discount_factor: 0.5353
+#exploration_rate: 0.1411
+
+# Q-Learning parameters 4x4
+learning_rate: 0.6350
+discount_factor: 0.9251
+exploration_rate: 0.0306
+
+# Q-Learning parameters 5x5 
+# learning_rate: 0.2968
+# discount_factor: 0.8695
+# exploration_rate: 0.1015
