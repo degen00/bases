@@ -1,22 +1,37 @@
-# Logs
-game_log: data/logs/game.log
-lines_log: data/logs/lines.csv
-hyperparameter_tuning_results: data/hp/hyperparameter_results.csv
+# Bases configuration.  Relative paths are resolved against this file's
+# directory, so the package works from any working directory.
+# "{size}" in a path is replaced by the number of boxes per side.
+paths:
+  policy: data/policy/policy_{size}x{size}.json.gz
+  training_log: data/logs/training_{size}x{size}.csv
+  lines_log: data/logs/lines.csv
+  game_log: data/logs/game.log
+  tuning_results: data/hp/hyperparameter_results_{size}x{size}.csv
 
-# Q-Learning policy
-policy_path: data/policy/policy.json
+rules:
+  # Classic Dots and Boxes grants another move after completing a box.
+  # Bases (the default) simply alternates turns.  Policies are trained for
+  # one rule set; the GUI and CLI let you switch.
+  extra_turn_on_box: false
 
-# Q-Learning parameters 3x3
-#learning_rate: 0.0.9569
-#discount_factor: 0.5353
-#exploration_rate: 0.1411
-
-# Q-Learning parameters 4x4
-learning_rate: 0.6350
-discount_factor: 0.9251
-exploration_rate: 0.0306
-
-# Q-Learning parameters 5x5 
-# learning_rate: 0.2968
-# discount_factor: 0.8695
-# exploration_rate: 0.1015
+# Q-learning hyperparameters.  "default" applies to any size without its own
+# entry.  exploration_rate decays exponentially to exploration_min over the
+# first 80% of training.  opponent_mix are the relative odds that an episode
+# is played against the agent itself, the greedy heuristic, or random moves.
+training:
+  default:
+    learning_rate: 0.4
+    discount_factor: 0.96
+    exploration_rate: 0.30
+    exploration_min: 0.02
+    opponent_mix: {self: 0.8, greedy: 0.1, random: 0.1}
+  2:
+    learning_rate: 0.5
+    discount_factor: 1.0
+    exploration_rate: 0.30
+    exploration_min: 0.02
+  3:   # best of `python play.py tune --size 3 --trials 8 --train-episodes 20000`
+    learning_rate: 0.5
+    discount_factor: 0.96
+    exploration_rate: 0.25
+    exploration_min: 0.01
