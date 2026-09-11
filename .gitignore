@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Bases run-time outputs
+data/logs/
+data/hp/
