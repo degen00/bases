@@ -10,6 +10,8 @@ from typing import Optional
 from .agent import MinimaxAgent, QLearningAgent
 from .config import load_config
 from .game import Bases
+from .kropki import KropkiBoard
+from .kropki_ai import make_kropki_ai
 from .player import HumanPlayer
 from .train import evaluate, hyperparameter_tuning, train_agents
 
@@ -40,6 +42,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("gui", help="open the graphical interface (default)")
     common(p)
     p.add_argument("--difficulty", choices=["easy", "normal", "hard"], default="normal")
+    p.add_argument("--game", choices=["boxes", "kropki"], default="boxes")
+    p.add_argument("--points", type=int, default=10, help="Kropki board size (points per side)")
+
+    p = sub.add_parser("kropki", help="play Kropki (free-form bases) in the terminal")
+    p.add_argument("--width", "-W", type=int, default=10)
+    p.add_argument("--height", "-H", type=int, default=None)
+    p.add_argument("--mode", "-m", choices=list(MODES), default="hva",
+                   help="; ".join(f"{k}: {v}" for k, v in MODES.items()))
+    p.add_argument("--difficulty", choices=["easy", "normal", "hard"], default="normal")
+    p.add_argument("--seed", type=int)
 
     p = sub.add_parser("train", help="train the Q-learning agent")
     common(p)
@@ -179,7 +191,59 @@ def cmd_gui(args, cfg) -> int:
         print(f"The GUI needs pygame: pip install pygame ({exc})")
         return 1
     extra = cfg.extra_turn_on_box if args.extra_turn is None else args.extra_turn
-    run(size=args.size, extra_turn_on_box=extra, config=cfg, difficulty=args.difficulty)
+    run(size=args.size, extra_turn_on_box=extra, config=cfg, difficulty=args.difficulty,
+        game=args.game, kropki_size=args.points)
+    return 0
+
+
+def cmd_kropki(args, cfg) -> int:
+    board = KropkiBoard(args.width, args.height)
+    ai = {p: make_kropki_ai(args.difficulty, args.seed)
+          for p, c in zip("AB", (args.mode[0], args.mode[2])) if c == "a"}
+    print(f"\nKropki {board.width}x{board.height}: {MODES[args.mode]}. Enter a point as "
+          "'x y' ((0, 0) is top-left), or 'pass', 'undo', 'quit'.")
+    try:
+        while not board.is_over():
+            print()
+            print(board.render())
+            if board.turn in ai:
+                move = ai[board.turn].choose_move(board)
+                if move is None:
+                    board.pass_turn()
+                    print(f"AI (Player {board.turn}) passes")
+                else:
+                    mine, theirs = board.play(*move)
+                    print(f"AI plays {move}" + (f", capturing {mine}" if mine else ""))
+                continue
+            raw = input(f"Player {board.turn}: ").strip().lower()
+            if raw == "quit":
+                break
+            if raw == "pass":
+                board.pass_turn()
+                continue
+            if raw == "undo":
+                board.undo()
+                while board.history and board.turn in ai:
+                    board.undo()
+                continue
+            parts = raw.split()
+            try:
+                x, y = int(parts[0]), int(parts[1])
+                mine, theirs = board.play(x, y)
+            except (ValueError, IndexError) as exc:
+                print(f"Invalid move: {exc if str(exc) else 'enter two integers'}")
+                continue
+            if mine:
+                print(f"You captured {mine} dot(s)!")
+            if theirs:
+                print(f"Your dot was captured ({theirs}).")
+    except (KeyboardInterrupt, EOFError):
+        print("\nGame interrupted.")
+        return 0
+    print()
+    print(board.render())
+    if board.is_over():
+        print(f"Game over: {board.winner()}  (A {board.scores['A']} - B {board.scores['B']})")
     return 0
 
 
@@ -191,7 +255,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         args = parser.parse_args(raw + ["gui"])
     cfg = load_config(args.config)
     commands = {"gui": cmd_gui, "train": cmd_train, "tune": cmd_tune,
-                "eval": cmd_eval, "play": cmd_play}
+                "eval": cmd_eval, "play": cmd_play, "kropki": cmd_kropki}
     return commands[args.command](args, cfg)
 
 

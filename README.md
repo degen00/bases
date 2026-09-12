@@ -1,6 +1,6 @@
 # Bases
 
-Bases is Dots and Boxes with a reinforcement-learning opponent. Players take
+Bases is two games in one package: Dots and Boxes with a reinforcement-learning opponent, and Kropki, the free-form base game (see below). Players take
 turns drawing lines between adjacent dots; whoever draws the fourth side of a
 box owns it, and the player with more boxes when the grid is full wins.
 
@@ -43,6 +43,40 @@ sizes the AI plays a greedy heuristic until you train it (menu → *Train AI*).
   Human-vs-AI it takes back the AI's reply too), `H` hint (highlights the move
   the Hard AI would play for you), `Q` shows the AI's Q-value for every free
   edge (green = good for the mover, red = bad), `Esc` menu.
+
+## Kropki: free-form bases
+
+The second game in the package is the one Bases is named after: players
+alternately place a dot of their colour on a grid point, and a closed chain of
+your dots (orthogonal **or diagonal** steps) around one or more enemy dots
+captures them and turns the enclosed region into your *base*. Chains around
+empty points are only *houses*: not a base, but an enemy dot placed inside one
+is captured immediately. The board edge never counts as part of a chain. The
+game ends when no playable point is left or both players pass in a row; the
+player with more captured dots wins. This is the classic Polish/Russian game
+Kropki (Točki).
+
+* GUI: choose **Kropki** in the *Game* row of the menu (6x6 to 20x20 points);
+  click a point to place a dot, `P` to pass, `U` undo, `N` new game.
+* Terminal: `python play.py kropki -W 10 -m hva --difficulty hard`, entering
+  moves as `x y`, or `pass`, `undo`, `quit`.
+* Rule variants are constructor flags of `KropkiBoard`: `mover_priority`
+  (when a move closes chains for both sides, the mover captures first) and
+  `allow_pass`.
+
+The Kropki AI (`bases/kropki_ai.py`) does not use Q-learning: a 10x10 board
+has about 3^100 positions and no symmetry trick makes a table feasible. It is
+a search player instead. Every legal move is scored by captures, dots saved
+from an enemy capture, self-capture avoidance, Go-style *liberty pressure*
+(an orthogonally connected group is captured exactly when all its orthogonal
+liberties hold enemy dots, so reducing liberties of interior groups, putting
+them in atari, and escaping with your own endangered groups all count) and
+position. The Hard level runs a 2-ply minimax over the best candidates with a
+threat- and danger-aware leaf evaluation (about 0.3 s per move on 10x10).
+Easy adds random moves. In self-play Hard beats Normal from either side and
+Normal beats random play.
+
+![kropki](docs/screenshot_kropki.png)
 
 ## Command line
 
@@ -163,6 +197,9 @@ bases/
   player.py          HumanPlayer for the terminal
   train.py           train_agents, evaluate, hyperparameter_tuning
   search.py          negamax with alpha-beta (Hard level, hints, MinimaxAgent)
+  kropki.py          KropkiBoard: free-form base game rules, undo, ASCII render
+  kropki_ai.py       Kropki computer players (random, heuristic, 2-ply search)
+  gui_kropki.py      Kropki scene of the GUI
   gui.py             pygame interface
   cli.py             command-line interface
   config.py          config discovery and defaults
@@ -182,6 +219,9 @@ SDL_VIDEODRIVER=dummy python -m unittest tests.test_gui   # headless GUI tests
 ```
 
 ## Release log
+
+* **v0.3** — Kropki, the free-form base game (rules engine with undo and
+  rule flags, heuristic/search AI, GUI scene, terminal mode, tests).
 
 * **v0.2** — Bitmask engine (training runs hundreds of games per second), corrected two-player
   Q-learning target, symmetry reduction that also maps actions, heuristic

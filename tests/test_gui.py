@@ -104,3 +104,46 @@ class GuiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipIf(pygame is None, "pygame not installed")
+class KropkiGuiTests(unittest.TestCase):
+    def setUp(self):
+        self.app = App(size=2, ai_delay_ms=0)
+        self.app.game = "kropki"
+        self.app.kropki_size = 6
+
+    def tearDown(self):
+        pygame.quit()
+
+    def test_menu_switches_and_starts_kropki(self):
+        self.app.step()
+        self.app.new_match()
+        self.assertEqual(self.app.scene, "kropki")
+        self.app.step()
+        board = self.app.kropki.board
+        self.assertEqual((board.width, board.height), (6, 6))
+
+    def test_click_places_dot_and_ai_answers(self):
+        self.app.mode = "hva"
+        self.app.new_match()
+        self.app.step()
+        view = self.app.kropki
+        pos = view.screen_pos(2, 2, view.layout())
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=pos))
+        self.app.step()
+        self.assertEqual(view.board.dot[2][2], "A")
+        self.app.step(); self.app.step()
+        self.assertEqual(len(view.board.history), 2)
+        view.undo()
+        self.assertEqual(len(view.board.history), 0)
+
+    def test_pass_twice_ends_game_and_scores(self):
+        self.app.mode = "hvh"
+        self.app.new_match()
+        self.app.step()
+        view = self.app.kropki
+        view.human_pass(); view.human_pass()
+        self.app.step()
+        self.assertTrue(view.board.is_over())
+        self.assertEqual(self.app.wins["Tie"], 1)
