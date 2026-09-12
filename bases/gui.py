@@ -17,6 +17,7 @@ import pygame
 from .agent import QLearningAgent
 from .board import Board
 from .config import Config, load_config
+from .gui_kropki import KropkiView
 from .train import TrainingStats, train_agents
 
 # -- palette ------------------------------------------------------------------
@@ -41,6 +42,8 @@ MODES = [("hvh", "Human vs Human"), ("hva", "Human vs AI"),
 DIFFICULTIES = {"easy": (0.35, 0, 0), "normal": (0.0, 0, 0), "hard": (0.0, 3, 2)}
 HINT_COLOR = (46, 160, 90)
 MIN_SIZE, MAX_SIZE = 1, 8
+GAMES = [("boxes", "Dots and Boxes"), ("kropki", "Kropki (free-form bases)")]
+KROPKI_SIZES = [6, 8, 10, 12, 15, 20]
 EPISODE_STEPS = [1_000, 2_000, 5_000, 10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
 
 
@@ -91,6 +94,9 @@ class App:
         self.extra_turn = extra_turn_on_box
         self.mode = "hva"
         self.difficulty = "normal"
+        self.game = "boxes"
+        self.kropki_size = 10
+        self.kropki = KropkiView(self)
         self.ai_delay = ai_delay_ms / 1000.0
         self.scene = "menu"
         self.running = True
@@ -166,6 +172,10 @@ class App:
 
     # -- scene changes ------------------------------------------------------
     def start_game(self) -> None:
+        if self.game == "kropki":
+            self.kropki.start(self.kropki_size, self.kropki_size, self.mode, self.difficulty)
+            self.scene = "kropki"
+            return
         self.board = Board(self.size, extra_turn_on_box=self.extra_turn)
         self.hover = None
         self.hint = None
@@ -181,6 +191,13 @@ class App:
     def new_match(self) -> None:
         self.wins = {"A": 0, "B": 0, "Tie": 0}
         self.start_game()
+
+    def set_game(self, game: str) -> None:
+        self.game = game
+
+    def change_kropki_size(self, delta: int) -> None:
+        i = KROPKI_SIZES.index(self.kropki_size) if self.kropki_size in KROPKI_SIZES else 2
+        self.kropki_size = KROPKI_SIZES[max(0, min(len(KROPKI_SIZES) - 1, i + delta))]
 
     def undo(self) -> None:
         board = self.board
@@ -317,6 +334,8 @@ class App:
             self.handle_event(event)
         if self.scene == "game":
             self.advance_game()
+        elif self.scene == "kropki":
+            self.kropki.advance()
         elif self.scene == "train":
             self.poll_training()
         self.draw()
@@ -329,6 +348,14 @@ class App:
         elif event.type == pygame.VIDEORESIZE:
             self.screen = pygame.display.set_mode(
                 (max(640, event.w), max(480, event.h)), pygame.RESIZABLE)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and \
+                self.scene == "kropki":
+            for button in self.buttons:
+                if button.click(event.pos):
+                    return
+            self.kropki.handle_event(event)
+        elif self.scene == "kropki" and event.type in (pygame.KEYDOWN, pygame.MOUSEMOTION):
+            self.kropki.handle_event(event)
         elif event.type == pygame.KEYDOWN:
             self.handle_key(event.key)
         elif event.type == pygame.MOUSEMOTION and self.scene == "game":
@@ -427,6 +454,8 @@ class App:
             self.draw_menu()
         elif self.scene == "game":
             self.draw_game()
+        elif self.scene == "kropki":
+            self.kropki.draw()
         else:
             self.draw_train()
         mouse = pygame.mouse.get_pos()
@@ -442,18 +471,31 @@ class App:
         self.text("Dots and Boxes against a Q-learning opponent", (cx, 108),
                   self.small, MUTED, center=True)
 
-        y = 160
+        y = 150
+        self.text("Game", (x, y + 8))
+        self.button_row([Button(label, lambda g=key: self.set_game(g), active=self.game == key)
+                         for key, label in GAMES], y, x + 90, col_w - 90)
+        y += 56
+        kropki = self.game == "kropki"
         self.text("Board", (x, y + 8))
-        self.button_row([Button("-", lambda: self.change_size(-1)),
-                         Button(f"{self.size} x {self.size} boxes", lambda: None, active=True),
-                         Button("+", lambda: self.change_size(1))], y, x + 90, col_w - 90)
+        if kropki:
+            self.button_row([Button("-", lambda: self.change_kropki_size(-1)),
+                             Button(f"{self.kropki_size} x {self.kropki_size} points",
+                                    lambda: None, active=True),
+                             Button("+", lambda: self.change_kropki_size(1))],
+                            y, x + 90, col_w - 90)
+        else:
+            self.button_row([Button("-", lambda: self.change_size(-1)),
+                             Button(f"{self.size} x {self.size} boxes", lambda: None, active=True),
+                             Button("+", lambda: self.change_size(1))], y, x + 90, col_w - 90)
         y += 56
-        self.text("Rule", (x, y + 8))
-        self.button_row([Button("Alternate turns", lambda: self.set_rule(False),
-                                active=not self.extra_turn),
-                         Button("Extra turn after a box", lambda: self.set_rule(True),
-                                active=self.extra_turn)], y, x + 90, col_w - 90)
-        y += 56
+        if not kropki:
+            self.text("Rule", (x, y + 8))
+            self.button_row([Button("Alternate turns", lambda: self.set_rule(False),
+                                    active=not self.extra_turn),
+                             Button("Extra turn after a box", lambda: self.set_rule(True),
+                                    active=self.extra_turn)], y, x + 90, col_w - 90)
+            y += 56
         self.text("Players", (x, y + 8))
         self.button_row([Button(label, lambda m=key: setattr(self, "mode", m),
                                 active=self.mode == key) for key, label in MODES],
@@ -464,14 +506,19 @@ class App:
                                 active=self.difficulty == level) for level in DIFFICULTIES],
                         y, x + 90, col_w - 90)
         y += 64
-        status_color = GOOD if self.agent and self.agent.num_states else MUTED
-        self.text(self.agent_status, (cx, y), self.small, status_color, center=True)
-        y += 36
-        self.text("Training", (x, y + 8))
-        self.button_row([Button("-", lambda: self.change_episodes(-1)),
-                         Button(f"{self.train_episodes:,} games", lambda: None, active=True),
-                         Button("+", lambda: self.change_episodes(1)),
-                         Button("Train AI", self.start_training)], y, x + 90, col_w - 90)
+        if kropki:
+            self.text("Kropki AI: heuristic search, no training needed", (cx, y),
+                      self.small, MUTED, center=True)
+            y += 36
+        else:
+            status_color = GOOD if self.agent and self.agent.num_states else MUTED
+            self.text(self.agent_status, (cx, y), self.small, status_color, center=True)
+            y += 36
+            self.text("Training", (x, y + 8))
+            self.button_row([Button("-", lambda: self.change_episodes(-1)),
+                             Button(f"{self.train_episodes:,} games", lambda: None, active=True),
+                             Button("+", lambda: self.change_episodes(1)),
+                             Button("Train AI", self.start_training)], y, x + 90, col_w - 90)
         y += 72
         play = Button("Play", self.new_match, active=True)
         play.rect = pygame.Rect(cx - 120, y, 240, 48)
@@ -679,9 +726,12 @@ def wrap(text: str, font: pygame.font.Font, width: int) -> list[str]:
 
 
 def run(size: int = 3, extra_turn_on_box: bool = False,
-        config: Optional[Config] = None, difficulty: str = "normal") -> None:
+        config: Optional[Config] = None, difficulty: str = "normal",
+        game: str = "boxes", kropki_size: int = 10) -> None:
     app = App(size=size, extra_turn_on_box=extra_turn_on_box, config=config)
     app.set_difficulty(difficulty)
+    app.game = game
+    app.kropki_size = kropki_size
     app.run()
 
 
