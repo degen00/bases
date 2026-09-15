@@ -1,5 +1,7 @@
 # Bases
 
+[![tests](https://github.com/degen00/bases/actions/workflows/tests.yml/badge.svg)](https://github.com/degen00/bases/actions/workflows/tests.yml)
+
 Bases is two games in one package: Dots and Boxes with a reinforcement-learning opponent, and Kropki, the free-form base game (see below). Players take
 turns drawing lines between adjacent dots; whoever draws the fourth side of a
 box owns it, and the player with more boxes when the grid is full wins.
@@ -71,12 +73,34 @@ from an enemy capture, self-capture avoidance, Go-style *liberty pressure*
 (an orthogonally connected group is captured exactly when all its orthogonal
 liberties hold enemy dots, so reducing liberties of interior groups, putting
 them in atari, and escaping with your own endangered groups all count) and
-position. The Hard level runs a 2-ply minimax over the best candidates with a
-threat- and danger-aware leaf evaluation (about 0.3 s per move on 10x10).
-Easy adds random moves. In self-play Hard beats Normal from either side and
-Normal beats random play.
+position. Hard and Expert run an iterative-deepening alpha-beta search over
+the best candidates (liberty-based move ordering, a transposition table, a
+threat- and danger-aware leaf) within a time budget of 0.5 s and 2 s per
+move. Easy adds random moves. Captures, threats and house points are found
+exactly by an articulation-point analysis of the open-point graph
+(`capture_map`), so the search needs no trial plays. Level ordering is
+checked with the tournament harness below; on 8x8 with six games per pair
+(colours alternating, seed 5):
+
+| Pair | Result for the first | Avg margin |
+|---|---|---|
+| Normal vs Random | 4-0-0 | +9.2 |
+| Hard vs Normal | 4-2-0 | +3.3 |
+| Expert vs Normal | 3-0-3 | +3.0 |
+| Expert vs Hard | 3-1-2 | +0.2 |
 
 ![kropki](docs/screenshot_kropki.png)
+
+Developer tools for Kropki:
+
+* `python play.py kropki-eval --levels random,normal,hard,expert --games 4 --width 8`
+  plays seeded self-play matches between levels (colours alternate) and
+  reports win rates, margins and ms per move. Use it after changing weights.
+* `python tools/export_vectors.py` records games as JSON conformance vectors
+  (`data/vectors/kropki_vectors.json`); `--verify FILE` replays them. Any port
+  of the engine must reproduce every capture and score in that file.
+* Boards need not be square: the GUI offers up to the classic 39x32, the CLI
+  takes `--points 39x32` / `-W 39 -H 32`.
 
 ## Command line
 
@@ -198,8 +222,12 @@ bases/
   train.py           train_agents, evaluate, hyperparameter_tuning
   search.py          negamax with alpha-beta (Hard level, hints, MinimaxAgent)
   kropki.py          KropkiBoard: free-form base game rules, undo, ASCII render
-  kropki_ai.py       Kropki computer players (random, heuristic, 2-ply search)
+  kropki_ai.py       Kropki computer players (random, heuristic, time-budgeted search)
+  kropki_tournament.py  self-play matches between Kropki levels
   gui_kropki.py      Kropki scene of the GUI
+tools/export_vectors.py  conformance vectors for engine ports
+.github/workflows/   CI: unit tests and vector replay on every push and PR
+ROADMAP.md           what comes next
   gui.py             pygame interface
   cli.py             command-line interface
   config.py          config discovery and defaults
@@ -220,6 +248,9 @@ SDL_VIDEODRIVER=dummy python -m unittest tests.test_gui   # headless GUI tests
 
 ## Release log
 
+* **v0.4** — Time-budgeted iterative-deepening search with a transposition
+  table (Hard/Expert), self-play tournament harness, conformance vectors for
+  engine ports, CI, classic 39x32 boards, roadmap.
 * **v0.3** — Kropki, the free-form base game (rules engine with undo and
   rule flags, heuristic/search AI, GUI scene, terminal mode, tests).
 

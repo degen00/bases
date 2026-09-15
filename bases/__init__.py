@@ -1,5 +1,5 @@
 """Bases: Dots and Boxes with a tabular Q-learning opponent."""
-__version__ = "0.2.0"
+__version__ = "0.4.0"
 
 __all__ = ["Bases", "Board", "Geometry", "Transition", "HumanPlayer",
            "QLearningAgent", "RandomAgent", "GreedyAgent", "MinimaxAgent",

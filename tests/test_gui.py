@@ -111,7 +111,7 @@ class KropkiGuiTests(unittest.TestCase):
     def setUp(self):
         self.app = App(size=2, ai_delay_ms=0)
         self.app.game = "kropki"
-        self.app.kropki_size = 6
+        self.app.kropki_size = (6, 6)
 
     def tearDown(self):
         pygame.quit()
