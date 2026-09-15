@@ -30,13 +30,11 @@ deeper search *weaker* than the one-ply exact heuristic until this landed.
 custom weight sets), reporting win rates, average margins and ms per move.
 Used to tune heuristic weights and to confirm Expert > Hard > Normal > Random.
 
-## 4. Continuous integration — `in progress`
+## 4. Continuous integration — `done`
 
-GitHub Actions runs the unit tests headlessly on every push and pull request.
-The workflow file (`.github/workflows/tests.yml`) is written and kept locally
-but could not be pushed from the CLI: the GitHub token lacks the `workflow`
-scope. Add it through the GitHub web UI, or run
-`gh auth refresh -h github.com -s workflow` once and push it.
+GitHub Actions (`.github/workflows/tests.yml`) runs the unit tests headlessly
+on Python 3.10 and 3.12 and replays the conformance vectors on every push to
+`main`/`develop` and on every pull request.
 
 ## 5. Classic board sizes — `done`
 
