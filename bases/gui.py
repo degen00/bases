@@ -39,11 +39,12 @@ MODES = [("hvh", "Human vs Human"), ("hva", "Human vs AI"),
          ("avh", "AI vs Human"), ("ava", "AI vs AI")]
 # difficulty -> (probability of a random move, search depth for boards <= 3x3,
 # search depth for larger boards)
-DIFFICULTIES = {"easy": (0.35, 0, 0), "normal": (0.0, 0, 0), "hard": (0.0, 3, 2)}
+DIFFICULTIES = {"easy": (0.35, 0, 0), "normal": (0.0, 0, 0), "hard": (0.0, 3, 2),
+                "expert": (0.0, 4, 3)}
 HINT_COLOR = (46, 160, 90)
 MIN_SIZE, MAX_SIZE = 1, 8
 GAMES = [("boxes", "Dots and Boxes"), ("kropki", "Kropki (free-form bases)")]
-KROPKI_SIZES = [6, 8, 10, 12, 15, 20]
+KROPKI_SIZES = [(6, 6), (8, 8), (10, 10), (12, 12), (15, 15), (20, 20), (25, 25), (39, 32)]
 EPISODE_STEPS = [1_000, 2_000, 5_000, 10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
 
 
@@ -95,7 +96,7 @@ class App:
         self.mode = "hva"
         self.difficulty = "normal"
         self.game = "boxes"
-        self.kropki_size = 10
+        self.kropki_size: tuple[int, int] = (10, 10)
         self.kropki = KropkiView(self)
         self.ai_delay = ai_delay_ms / 1000.0
         self.scene = "menu"
@@ -173,7 +174,8 @@ class App:
     # -- scene changes ------------------------------------------------------
     def start_game(self) -> None:
         if self.game == "kropki":
-            self.kropki.start(self.kropki_size, self.kropki_size, self.mode, self.difficulty)
+            width, height = self.kropki_size
+            self.kropki.start(width, height, self.mode, self.difficulty)
             self.scene = "kropki"
             return
         self.board = Board(self.size, extra_turn_on_box=self.extra_turn)
@@ -196,7 +198,8 @@ class App:
         self.game = game
 
     def change_kropki_size(self, delta: int) -> None:
-        i = KROPKI_SIZES.index(self.kropki_size) if self.kropki_size in KROPKI_SIZES else 2
+        size = tuple(self.kropki_size)
+        i = KROPKI_SIZES.index(size) if size in KROPKI_SIZES else 2
         self.kropki_size = KROPKI_SIZES[max(0, min(len(KROPKI_SIZES) - 1, i + delta))]
 
     def undo(self) -> None:
@@ -480,7 +483,7 @@ class App:
         self.text("Board", (x, y + 8))
         if kropki:
             self.button_row([Button("-", lambda: self.change_kropki_size(-1)),
-                             Button(f"{self.kropki_size} x {self.kropki_size} points",
+                             Button(f"{self.kropki_size[0]} x {self.kropki_size[1]} points",
                                     lambda: None, active=True),
                              Button("+", lambda: self.change_kropki_size(1))],
                             y, x + 90, col_w - 90)
@@ -727,11 +730,11 @@ def wrap(text: str, font: pygame.font.Font, width: int) -> list[str]:
 
 def run(size: int = 3, extra_turn_on_box: bool = False,
         config: Optional[Config] = None, difficulty: str = "normal",
-        game: str = "boxes", kropki_size: int = 10) -> None:
+        game: str = "boxes", kropki_size: tuple[int, int] = (10, 10)) -> None:
     app = App(size=size, extra_turn_on_box=extra_turn_on_box, config=config)
     app.set_difficulty(difficulty)
     app.game = game
-    app.kropki_size = kropki_size
+    app.kropki_size = tuple(kropki_size)
     app.run()
 
 
