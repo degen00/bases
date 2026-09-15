@@ -59,8 +59,13 @@ The tabular Q-learner plateaus (~70% vs greedy on 3x3, prior-only on 4x4+).
 Options: linear function approximation over chain/box features, or a small
 network trained by self-play. Keep the exact 2x2 solver as ground truth.
 
-## 9. Housekeeping — `todo`
+## 9. Housekeeping — `done`
 
-Keep `develop` in sync with `main` after each merge; tag releases
-(`v0.2`, `v0.3`, ...); publish policy files as release assets instead of
-committing large binaries.
+* `develop` follows `main`: `.github/workflows/sync-develop.yml` merges
+  `main` into `develop` after every push to `main`.
+* Releases are annotated tags `vX.Y` (v0.1–v0.4 exist, each with a GitHub
+  release). Pushing a new tag runs `.github/workflows/release.yml`, which
+  trains the 2x2 and 3x3 policies from seed 1 and attaches them as assets.
+* Policies are no longer committed (`data/policy/` is ignored);
+  `python play.py fetch-policies [--tag vX.Y] [--size N]` downloads them
+  (`bases/policies.py`).

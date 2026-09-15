@@ -176,3 +176,5 @@ cython_debug/
 # Bases run-time outputs
 data/logs/
 data/hp/
+# trained policies come from GitHub releases (python play.py fetch-policies)
+data/policy/
