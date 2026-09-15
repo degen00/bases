@@ -32,6 +32,8 @@ DEFAULTS: dict[str, Any] = {
     "rules": {
         "extra_turn_on_box": False,
     },
+    # GitHub repository whose releases carry the trained policies
+    "release_repo": "degen00/bases",
     "training": {
         "default": {
             "learning_rate": 0.3,

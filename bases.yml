@@ -8,6 +8,10 @@ paths:
   game_log: data/logs/game.log
   tuning_results: data/hp/hyperparameter_results_{size}x{size}.csv
 
+# Trained policies are downloaded from this GitHub repository's releases
+# (python play.py fetch-policies).
+release_repo: degen00/bases
+
 rules:
   # Classic Dots and Boxes grants another move after completing a box.
   # Bases (the default) simply alternates turns.  Policies are trained for

@@ -1,0 +1,37 @@
+name: release
+
+# On every version tag: train the shipped Dots and Boxes policies from a
+# fixed seed and attach them to the GitHub release as assets, so the
+# repository never has to carry the binaries.  Trigger with:
+#   git tag -a v0.5 -m "..." && git push origin v0.5
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  policies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Train policies
+        run: |
+          python play.py train --size 2 --episodes 20000 --seed 1 --eval-episodes 200
+          python play.py train --size 3 --episodes 300000 --seed 1 --eval-episodes 300
+      - name: Evaluate the 3x3 policy
+        run: python play.py eval --size 3 --episodes 300 --seed 1
+      - name: Attach policies to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" data/policy/policy_2x2.json.gz \
+            data/policy/policy_3x3.json.gz --clobber

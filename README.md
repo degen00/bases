@@ -20,13 +20,16 @@ Q-value overlay.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt       # pyyaml, pygame
+python play.py fetch-policies         # trained AI policies from the GitHub release
 python play.py                        # opens the GUI (Human vs AI, 3x3)
 ```
 
 Or install it as a package: `pip install -e .` then run `bases`.
 
-Trained policies for 2x2 and 3x3 boards ship in `data/policy/`. For other
-sizes the AI plays a greedy heuristic until you train it (menu → *Train AI*).
+Trained policies for 2x2 and 3x3 boards are attached to every
+[GitHub release](https://github.com/degen00/bases/releases); `fetch-policies`
+puts them in `data/policy/`. For other sizes the AI plays a greedy heuristic
+until you train it (menu → *Train AI*).
 
 ## Playing in the GUI
 
@@ -160,7 +163,7 @@ Outputs:
 
 | File | Content |
 |------|---------|
-| `data/policy/policy_NxN.json.gz` | Q-table plus metadata (size, rule, episodes, hyperparameters) |
+| `data/policy/policy_NxN.json.gz` | Q-table plus metadata (size, rule, episodes, hyperparameters); not in git, downloaded from releases or trained locally |
 | `data/logs/training_NxN.csv` | learning curve: win rates vs random/greedy at each checkpoint |
 | `data/hp/hyperparameter_results_NxN.csv` | one row per tuning trial |
 | `data/logs/lines.csv`, `game.log` | move log and event log of terminal games |
@@ -248,6 +251,14 @@ SDL_VIDEODRIVER=dummy python -m unittest tests.test_gui   # headless GUI tests
 
 ## Release log
 
+Releases are git tags `vX.Y`; pushing a tag makes CI train the shipped
+policies from a fixed seed and attach them to the GitHub release
+(`.github/workflows/release.yml`). `develop` follows `main` automatically
+(`sync-develop.yml`).
+
+* **v0.5** — Housekeeping: tags and releases for v0.2–v0.4, policies as
+  release assets with `fetch-policies`, automated `develop` sync and release
+  workflows.
 * **v0.4** — Time-budgeted iterative-deepening search with a transposition
   table (Hard/Expert), self-play tournament harness, conformance vectors for
   engine ports, CI, classic 39x32 boards, roadmap.

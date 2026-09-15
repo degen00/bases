@@ -56,6 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--difficulty", choices=KROPKI_LEVELS, default="normal")
     p.add_argument("--seed", type=int)
 
+    p = sub.add_parser("fetch-policies",
+                       help="download trained policies from the GitHub releases")
+    p.add_argument("--tag", default="latest", help="release tag (default: latest)")
+    p.add_argument("--size", type=int, action="append",
+                   help="only this board size (repeatable; default: all)")
+
     p = sub.add_parser("kropki-eval", help="self-play tournament between Kropki AI levels")
     p.add_argument("--levels", default="random,normal,hard",
                    help="comma-separated subset of " + ",".join(KROPKI_LEVELS))
@@ -117,7 +123,8 @@ def load_agent(cfg, size: int, policy: Optional[str], extra_turn: bool) -> QLear
               f"{agent.episodes_trained:,} training games).")
     else:
         print(f"No policy at {path}; the AI will play with the greedy heuristic only. "
-              f"Train one with: python play.py train --size {size}")
+              f"Download the released ones with: python play.py fetch-policies, "
+              f"or train one with: python play.py train --size {size}")
     return agent
 
 
@@ -219,6 +226,18 @@ def parse_points(text: str) -> tuple[int, int]:
     return w, h
 
 
+def cmd_fetch_policies(args, cfg) -> int:
+    from urllib.error import URLError
+    from .policies import fetch_policies
+    try:
+        paths = fetch_policies(cfg, args.tag, args.size)
+    except (URLError, FileNotFoundError, OSError, ValueError) as exc:
+        print(f"Download failed: {exc}")
+        return 1
+    print(f"{len(paths)} policy file(s) ready.")
+    return 0
+
+
 def cmd_kropki_eval(args, cfg) -> int:
     from .kropki_tournament import tournament
     levels = [lvl.strip() for lvl in args.levels.split(",") if lvl.strip()]
@@ -292,7 +311,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     cfg = load_config(args.config)
     commands = {"gui": cmd_gui, "train": cmd_train, "tune": cmd_tune,
                 "eval": cmd_eval, "play": cmd_play, "kropki": cmd_kropki,
-                "kropki-eval": cmd_kropki_eval}
+                "kropki-eval": cmd_kropki_eval, "fetch-policies": cmd_fetch_policies}
     return commands[args.command](args, cfg)
 
 
