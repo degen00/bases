@@ -129,7 +129,8 @@ class App:
         path = self.cfg.path("policy", self.size)
         agent = QLearningAgent(self.size, training_mode=False,
                                extra_turn_on_box=self.extra_turn)
-        status = "AI untrained: plays the greedy heuristic"
+        status = ("AI untrained: plays the greedy heuristic. Train it here or run "
+                  "'python play.py fetch-policies'")
         if path.is_file():
             try:
                 agent.load_policy(path)
