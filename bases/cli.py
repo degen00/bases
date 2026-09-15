@@ -10,10 +10,14 @@ from typing import Optional
 from .agent import MinimaxAgent, QLearningAgent
 from .config import load_config
 from .game import Bases
+from .kropki import KropkiBoard
+from .kropki_ai import make_kropki_ai
 from .player import HumanPlayer
 from .train import evaluate, hyperparameter_tuning, train_agents
 
-DIFFICULTIES = {"easy": (0.35, 0, 0), "normal": (0.0, 0, 0), "hard": (0.0, 3, 2)}
+DIFFICULTIES = {"easy": (0.35, 0, 0), "normal": (0.0, 0, 0), "hard": (0.0, 3, 2),
+                "expert": (0.0, 4, 3)}
+KROPKI_LEVELS = ["random", "easy", "normal", "hard", "expert"]
 MODES = {
     "hvh": "Human vs Human",
     "hva": "Human (A) vs AI (B)",
@@ -39,7 +43,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("gui", help="open the graphical interface (default)")
     common(p)
-    p.add_argument("--difficulty", choices=["easy", "normal", "hard"], default="normal")
+    p.add_argument("--difficulty", choices=list(DIFFICULTIES), default="normal")
+    p.add_argument("--game", choices=["boxes", "kropki"], default="boxes")
+    p.add_argument("--points", default="10x10",
+                   help="Kropki board size as WIDTHxHEIGHT or one number (default %(default)s)")
+
+    p = sub.add_parser("kropki", help="play Kropki (free-form bases) in the terminal")
+    p.add_argument("--width", "-W", type=int, default=10)
+    p.add_argument("--height", "-H", type=int, default=None)
+    p.add_argument("--mode", "-m", choices=list(MODES), default="hva",
+                   help="; ".join(f"{k}: {v}" for k, v in MODES.items()))
+    p.add_argument("--difficulty", choices=KROPKI_LEVELS, default="normal")
+    p.add_argument("--seed", type=int)
+
+    p = sub.add_parser("kropki-eval", help="self-play tournament between Kropki AI levels")
+    p.add_argument("--levels", default="random,normal,hard",
+                   help="comma-separated subset of " + ",".join(KROPKI_LEVELS))
+    p.add_argument("--games", type=int, default=4, help="games per pair (colours alternate)")
+    p.add_argument("--width", "-W", type=int, default=8)
+    p.add_argument("--height", "-H", type=int, default=None)
+    p.add_argument("--seed", type=int)
+    p.add_argument("--verbose", "-v", action="store_true")
 
     p = sub.add_parser("train", help="train the Q-learning agent")
     common(p)
@@ -79,7 +103,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="; ".join(f"{k}: {v}" for k, v in MODES.items()))
     p.add_argument("--games", type=int, default=1, help="number of games (0 = until Ctrl-C)")
     p.add_argument("--policy", help="policy file (default: configured path)")
-    p.add_argument("--difficulty", choices=["easy", "normal", "hard"], default="normal")
+    p.add_argument("--difficulty", choices=list(DIFFICULTIES), default="normal")
     p.add_argument("--no-log", action="store_true", help="do not append moves to lines.csv")
     return parser
 
@@ -179,7 +203,83 @@ def cmd_gui(args, cfg) -> int:
         print(f"The GUI needs pygame: pip install pygame ({exc})")
         return 1
     extra = cfg.extra_turn_on_box if args.extra_turn is None else args.extra_turn
-    run(size=args.size, extra_turn_on_box=extra, config=cfg, difficulty=args.difficulty)
+    run(size=args.size, extra_turn_on_box=extra, config=cfg, difficulty=args.difficulty,
+        game=args.game, kropki_size=parse_points(args.points))
+    return 0
+
+
+def parse_points(text: str) -> tuple[int, int]:
+    """'39x32' -> (39, 32); '10' -> (10, 10)."""
+    parts = str(text).lower().replace("*", "x").split("x")
+    try:
+        w = int(parts[0])
+        h = int(parts[1]) if len(parts) > 1 and parts[1] else w
+    except ValueError:
+        raise SystemExit(f"invalid board size {text!r}; use WIDTHxHEIGHT, e.g. 39x32") from None
+    return w, h
+
+
+def cmd_kropki_eval(args, cfg) -> int:
+    from .kropki_tournament import tournament
+    levels = [lvl.strip() for lvl in args.levels.split(",") if lvl.strip()]
+    unknown = [lvl for lvl in levels if lvl not in KROPKI_LEVELS]
+    if unknown or len(levels) < 2:
+        print(f"choose at least two of {', '.join(KROPKI_LEVELS)}")
+        return 1
+    height = args.height or args.width
+    print(f"Kropki {args.width}x{height}, {args.games} games per pair, colours alternate.")
+    tournament(levels, args.games, args.width, height, args.seed, verbose=args.verbose)
+    return 0
+
+
+def cmd_kropki(args, cfg) -> int:
+    board = KropkiBoard(args.width, args.height)
+    ai = {p: make_kropki_ai(args.difficulty, args.seed)
+          for p, c in zip("AB", (args.mode[0], args.mode[2])) if c == "a"}
+    print(f"\nKropki {board.width}x{board.height}: {MODES[args.mode]}. Enter a point as "
+          "'x y' ((0, 0) is top-left), or 'pass', 'undo', 'quit'.")
+    try:
+        while not board.is_over():
+            print()
+            print(board.render())
+            if board.turn in ai:
+                move = ai[board.turn].choose_move(board)
+                if move is None:
+                    board.pass_turn()
+                    print(f"AI (Player {board.turn}) passes")
+                else:
+                    mine, theirs = board.play(*move)
+                    print(f"AI plays {move}" + (f", capturing {mine}" if mine else ""))
+                continue
+            raw = input(f"Player {board.turn}: ").strip().lower()
+            if raw == "quit":
+                break
+            if raw == "pass":
+                board.pass_turn()
+                continue
+            if raw == "undo":
+                board.undo()
+                while board.history and board.turn in ai:
+                    board.undo()
+                continue
+            parts = raw.split()
+            try:
+                x, y = int(parts[0]), int(parts[1])
+                mine, theirs = board.play(x, y)
+            except (ValueError, IndexError) as exc:
+                print(f"Invalid move: {exc if str(exc) else 'enter two integers'}")
+                continue
+            if mine:
+                print(f"You captured {mine} dot(s)!")
+            if theirs:
+                print(f"Your dot was captured ({theirs}).")
+    except (KeyboardInterrupt, EOFError):
+        print("\nGame interrupted.")
+        return 0
+    print()
+    print(board.render())
+    if board.is_over():
+        print(f"Game over: {board.winner()}  (A {board.scores['A']} - B {board.scores['B']})")
     return 0
 
 
@@ -191,7 +291,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         args = parser.parse_args(raw + ["gui"])
     cfg = load_config(args.config)
     commands = {"gui": cmd_gui, "train": cmd_train, "tune": cmd_tune,
-                "eval": cmd_eval, "play": cmd_play}
+                "eval": cmd_eval, "play": cmd_play, "kropki": cmd_kropki,
+                "kropki-eval": cmd_kropki_eval}
     return commands[args.command](args, cfg)
 
 
